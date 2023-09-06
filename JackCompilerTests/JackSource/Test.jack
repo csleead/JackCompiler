@@ -1,0 +1,31 @@
+class Main {
+    field int a, b;
+    static boolean c;
+
+    constructor void ctor() {}
+    method int sum(int x, char y) {
+        var int local1, local2;
+        let local1 = 123;
+        let local2 = 456;
+        let local1[0] = 789;
+
+        if(true) {
+            let local1 = true;
+        } else {
+            let local2 = true;
+        }
+
+        do functionCall();
+        do local1.functionCall(1, 1 + 2);
+        do local1.functionCall(abc);
+        do local1.functionCall(arr[0]);
+        do local1.functionCall(functionCall());
+        do local1.functionCall((1 + 2));
+        do local1.functionCall(-1);
+
+        while(true) {
+            let local2 = true;
+        }
+        return ;
+    }
+}

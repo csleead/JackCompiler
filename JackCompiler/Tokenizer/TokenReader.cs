@@ -25,4 +25,7 @@ public class TokenReader
 
     public bool HasMoreTokens() =>
         _cursor < _tokens.Count - 1;
+
+    public IToken Peek(int n) =>
+        _tokens[_cursor + n];
 }
