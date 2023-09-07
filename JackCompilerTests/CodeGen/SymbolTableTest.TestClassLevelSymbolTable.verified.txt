@@ -1,0 +1,22 @@
+﻿{
+  fieldX: {
+    Type: int,
+    Kind: Field,
+    Offset: 0
+  },
+  fieldY: {
+    Type: string,
+    Kind: Field,
+    Offset: 1
+  },
+  staticFieldX: {
+    Type: boolean,
+    Kind: Static,
+    Offset: 0
+  },
+  staticFieldY: {
+    Type: string,
+    Kind: Static,
+    Offset: 1
+  }
+}

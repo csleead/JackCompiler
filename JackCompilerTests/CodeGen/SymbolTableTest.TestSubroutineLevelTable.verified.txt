@@ -1,0 +1,37 @@
+﻿{
+  arg0: {
+    Type: int,
+    Kind: Arg,
+    Offset: 1
+  },
+  arg1: {
+    Type: int,
+    Kind: Arg,
+    Offset: 2
+  },
+  fieldX: {
+    Type: int,
+    Kind: Field,
+    Offset: 0
+  },
+  localX: {
+    Type: int,
+    Kind: Var,
+    Offset: 0
+  },
+  localY: {
+    Type: int,
+    Kind: Var,
+    Offset: 1
+  },
+  staticFieldX: {
+    Type: int,
+    Kind: Static,
+    Offset: 0
+  },
+  this: {
+    Type: DummyClass,
+    Kind: Arg,
+    Offset: 0
+  }
+}
