@@ -50,11 +50,26 @@ async Task CompileFile(string sourcePath)
         File.Delete(xmlOutPath);
     }
     await File.WriteAllTextAsync(xmlOutPath, formattedXml);
+
+    var vmOutPath = GetVmOutputPath(sourcePath);
+    if (File.Exists(vmOutPath))
+    {
+        File.Delete(vmOutPath);
+    }
+    var vmCode = CompilationEngine.Compile(parseTree);
+    await File.WriteAllTextAsync(vmOutPath, vmCode);
 }
 
 string GetXmlOutputPath(string sourcePath)
 {
     var outputDir = Path.GetDirectoryName(sourcePath);
     var outputPath = Path.Join(outputDir, Path.GetFileNameWithoutExtension(sourcePath) + ".xml");
+    return outputPath;
+}
+
+string GetVmOutputPath(string sourcePath)
+{
+    var outputDir = Path.GetDirectoryName(sourcePath);
+    var outputPath = Path.Join(outputDir, Path.GetFileNameWithoutExtension(sourcePath) + ".vm");
     return outputPath;
 }

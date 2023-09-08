@@ -28,7 +28,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Folder Include="JackSource\" />
+	  <None Update="CodeGen\CompilationEngineTest.TestWriteVm.verified.txt">
+	    <DependentUpon>CompilationEngineTest.cs</DependentUpon>
+	  </None>
 	</ItemGroup>
 
 </Project>
