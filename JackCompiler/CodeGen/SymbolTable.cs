@@ -19,10 +19,13 @@ public class SymbolTable
         _classLevelTable = classLevelTable;
     }
 
-    public SymbolTable StartSubroutine()
+    public SymbolTable StartSubroutine(bool isMethod = false)
     {
         var table = new SymbolTable(this);
-        table.AddIdentifier("this", _className, IdentifierKind.Arg);
+        if (isMethod)
+        {
+            table.AddIdentifier("this", _className, IdentifierKind.Arg);
+        }
         return table;
     }
 

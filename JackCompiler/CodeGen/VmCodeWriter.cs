@@ -14,12 +14,8 @@ public class VmCodeWriter
         _code.AppendLine($"function {functionName} {localVariableCount}");
     }
 
-    public void Return()
-    {
-        _code
-            .AppendLine("push constant 0")
-            .AppendLine("return");
-    }
+    public void Return() =>
+        _code.AppendLine("return");
 
     public void Call(string functionName, int parameterCount, bool discardReturnValue)
     {
@@ -98,6 +94,7 @@ public enum MemorySegment
 {
     Constant,
     Local,
+    Argument,
 }
 
 public static class MemorySegmentExtension
@@ -106,6 +103,7 @@ public static class MemorySegmentExtension
     {
         MemorySegment.Constant => "constant",
         MemorySegment.Local => "local",
+        MemorySegment.Argument => "argument",
         _ => throw new Exception($"Unknown segment: {segment}")
     };
 }

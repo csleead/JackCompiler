@@ -30,7 +30,7 @@ public class SymbolTableTest
         classLevelTable.AddIdentifier("fieldX", "int", IdentifierKind.Field);
         classLevelTable.AddIdentifier("staticFieldX", "int", IdentifierKind.Static);
 
-        var subRoutineLevelTable = classLevelTable.StartSubroutine();
+        var subRoutineLevelTable = classLevelTable.StartSubroutine(true);
         subRoutineLevelTable.AddIdentifier("localX", "int", IdentifierKind.Var);
         subRoutineLevelTable.AddIdentifier("localY", "int", IdentifierKind.Var);
         subRoutineLevelTable.AddIdentifier("arg0", "int", IdentifierKind.Arg);

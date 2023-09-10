@@ -138,7 +138,7 @@ public class CompilationEngine
                     CompileLetStatement(statement, symbolTable);
                     break;
                 case NonTerminalElementKind.ReturnStatement:
-                    _codeWriter.Return();
+                    CompileReturnStatement(statement, symbolTable);
                     break;
                 case NonTerminalElementKind.WhileStatement:
                     CompileWhileStatement(statement, symbolTable);
@@ -150,6 +150,21 @@ public class CompilationEngine
                     throw new NotImplementedException();
             }
         }
+    }
+
+    private void CompileReturnStatement(NonTerminalElement statement, SymbolTable symbolTable)
+    {
+        if (statement.Children[1].IsTerminalOfToken<Symbol>(x => x.Kind == SymbolKind.SemiColon))
+        {
+            _codeWriter.Push(MemorySegment.Constant, 0);
+        }
+        else
+        {
+            var returnExpression = (NonTerminalElement)statement.Children[1];
+            CompileExpression(returnExpression, symbolTable);
+        }
+
+        _codeWriter.Return();
     }
 
     private void CompileIfStatement(NonTerminalElement ifStatement, SymbolTable symbolTable)
@@ -201,7 +216,9 @@ public class CompilationEngine
 
         var expression = statement.Children[3];
         CompileExpression((NonTerminalElement)expression, symbolTable);
-        _codeWriter.Pop(MemorySegment.Local, symbol.Offset);
+
+        var segment = GetMemorySegmentOfSymbol(symbol);
+        _codeWriter.Pop(segment, symbol.Offset);
     }
 
     private void CompileDoStatement(NonTerminalElement statement, SymbolTable symbolTable)
@@ -280,7 +297,8 @@ public class CompilationEngine
             if (term.Children.Count == 1 && terminalElement.Token is Identifier identifier)
             {
                 var info = symbolTable.GetIdentifier(identifier.Value);
-                _codeWriter.Push(MemorySegment.Local, info.Offset);
+                var segment = GetMemorySegmentOfSymbol(info);
+                _codeWriter.Push(segment, info.Offset);
                 return;
             }
 
@@ -428,4 +446,12 @@ public class CompilationEngine
             throw new InvalidOperationException($"Expected {kind} but found {element.Kind}");
         }
     }
+
+    private static MemorySegment GetMemorySegmentOfSymbol(IdentifierInfo info) =>
+        info.Kind switch
+        {
+            IdentifierKind.Var => MemorySegment.Local,
+            IdentifierKind.Arg => MemorySegment.Argument,
+            _ => throw new InvalidOperationException($"Unexpected IdentifierKind {info.Kind}"),
+        };
 }
