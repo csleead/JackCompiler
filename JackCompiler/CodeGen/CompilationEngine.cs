@@ -7,6 +7,8 @@ public class CompilationEngine
 {
     private readonly NonTerminalElement _classElement;
     private readonly VmCodeWriter _codeWriter = new();
+    private int _whileLoopCounter = 0;
+    private int _ifCounter = 0;
 
     private CompilationEngine(NonTerminalElement classElement)
     {
@@ -47,21 +49,47 @@ public class CompilationEngine
 
         var className = GetClassName();
         var subroutineName = GetSubroutineName(subroutineDec);
-        var parameterCount = GetSubroutineParameterCount(subroutineDec);
 
         var symbolTable = classSymbolTable.StartSubroutine();
 
-        _codeWriter.Function($"{className}.{subroutineName}", parameterCount);
+        AddParametersToSymbolTable(subroutineDec, symbolTable);
 
         var subroutineBody = subroutineDec.Children
             .OfType<NonTerminalElement>()
             .Single(x => x.Kind == NonTerminalElementKind.SubroutineBody);
 
-        AddLocalVariableToSymbolTable(subroutineBody, symbolTable);
-        CompileStatements(subroutineBody, symbolTable);
+        var varCount = AddLocalVariableToSymbolTable(subroutineBody, symbolTable);
+        _codeWriter.Function($"{className}.{subroutineName}", varCount);
+
+        var statements = subroutineBody
+            .Children
+            .OfType<NonTerminalElement>()
+            .Single(x => x.Kind == NonTerminalElementKind.Statements);
+        CompileStatements(statements, symbolTable);
     }
 
-    private void AddLocalVariableToSymbolTable(NonTerminalElement subroutineBody, SymbolTable symbolTable)
+    private void AddParametersToSymbolTable(NonTerminalElement subroutineDec, SymbolTable symbolTable)
+    {
+        EnsureElementKind(subroutineDec, NonTerminalElementKind.SubroutineDec);
+
+        var parameterList = (NonTerminalElement)subroutineDec.Children[4];
+        for (int i = 0; i < parameterList.Children.Count; i += 3)
+        {
+            var type = parameterList.Children[i].IsTerminalOfToken<Identifier>(out var identifier) ?
+                identifier.Value
+                : parameterList.Children[i].AsTerminalOfToken<Keyword>().Kind switch
+                {
+                    KeywordKind.Int => "int",
+                    KeywordKind.Char => "char",
+                    KeywordKind.Boolean => "boolean",
+                    _ => throw new NotImplementedException($"Unexpected keyword kind {parameterList.Children[i].AsTerminalOfToken<Keyword>().Kind}")
+                };
+            var parameterName = parameterList.Children[i + 1].AsTerminalOfToken<Identifier>().Value;
+            symbolTable.AddIdentifier(parameterName, type, IdentifierKind.Arg);
+        }
+    }
+
+    private int AddLocalVariableToSymbolTable(NonTerminalElement subroutineBody, SymbolTable symbolTable)
     {
         EnsureElementKind(subroutineBody, NonTerminalElementKind.SubroutineBody);
 
@@ -69,6 +97,7 @@ public class CompilationEngine
             .OfType<NonTerminalElement>()
             .Where(x => x.Kind == NonTerminalElementKind.VarDec);
 
+        int varCount = 0;
         foreach (var varDec in varDecs)
         {
             var type = ((TerminalElement)varDec.Children[1]).Token switch
@@ -88,22 +117,17 @@ public class CompilationEngine
             foreach (var v in variables)
             {
                 symbolTable.AddIdentifier(v.Value, type, IdentifierKind.Var);
+                varCount++;
             }
         }
+        return varCount;
     }
 
-    private void CompileStatements(NonTerminalElement subroutineBody, SymbolTable symbolTable)
+    private void CompileStatements(NonTerminalElement statements, SymbolTable symbolTable)
     {
-        EnsureElementKind(subroutineBody, NonTerminalElementKind.SubroutineBody);
+        EnsureElementKind(statements, NonTerminalElementKind.Statements);
 
-        var statements = subroutineBody
-            .Children
-            .OfType<NonTerminalElement>()
-            .Single(x => x.Kind == NonTerminalElementKind.Statements)
-            .Children
-            .Cast<NonTerminalElement>();
-
-        foreach (var statement in statements)
+        foreach (var statement in statements.Children.Cast<NonTerminalElement>())
         {
             switch (statement.Kind)
             {
@@ -116,10 +140,55 @@ public class CompilationEngine
                 case NonTerminalElementKind.ReturnStatement:
                     _codeWriter.Return();
                     break;
+                case NonTerminalElementKind.WhileStatement:
+                    CompileWhileStatement(statement, symbolTable);
+                    break;
+                case NonTerminalElementKind.IfStatement:
+                    CompileIfStatement(statement, symbolTable);
+                    break;
                 default:
                     throw new NotImplementedException();
             }
         }
+    }
+
+    private void CompileIfStatement(NonTerminalElement ifStatement, SymbolTable symbolTable)
+    {
+        EnsureElementKind(ifStatement, NonTerminalElementKind.IfStatement);
+
+        var counter = _ifCounter++;
+        CompileExpression((NonTerminalElement)ifStatement.Children[2], symbolTable);
+        _codeWriter.Not();
+        _codeWriter.IfGoto($"IF_FALSE_{counter}");
+
+        CompileStatements((NonTerminalElement)ifStatement.Children[5], symbolTable);
+        _codeWriter.Goto($"IF_END_{counter}");
+        _codeWriter.Label($"IF_FALSE_{counter}");
+
+        var elseBlock = ifStatement.Children.ElementAtOrDefault(9);
+        if (elseBlock is not null)
+        {
+            CompileStatements((NonTerminalElement)elseBlock, symbolTable);
+        }
+
+        _codeWriter.Label($"IF_END_{counter}");
+    }
+
+    private void CompileWhileStatement(NonTerminalElement statement, SymbolTable symbolTable)
+    {
+        EnsureElementKind(statement, NonTerminalElementKind.WhileStatement);
+
+        var counter = _whileLoopCounter++;
+        _codeWriter.Label($"WHILE_START_{counter}");
+
+        CompileExpression((NonTerminalElement)statement.Children[2], symbolTable);
+        _codeWriter.Not();
+        _codeWriter.IfGoto($"WHILE_END_{counter}");
+
+        CompileStatements((NonTerminalElement)statement.Children[5], symbolTable);
+        _codeWriter.Goto($"WHILE_START_{counter}");
+
+        _codeWriter.Label($"WHILE_END_{counter}");
     }
 
     private void CompileLetStatement(NonTerminalElement statement, SymbolTable symbolTable)
@@ -198,6 +267,16 @@ public class CompilationEngine
                 return;
             }
 
+            if (terminalElement.Token is Keyword { Kind: KeywordKind.True or KeywordKind.False } booleanLiteral)
+            {
+                _codeWriter.Push(MemorySegment.Constant, 0);
+                if (booleanLiteral.Kind == KeywordKind.True)
+                {
+                    _codeWriter.Not();
+                }
+                return;
+            }
+
             if (term.Children.Count == 1 && terminalElement.Token is Identifier identifier)
             {
                 var info = symbolTable.GetIdentifier(identifier.Value);
@@ -215,10 +294,17 @@ public class CompilationEngine
 
             // unaryOp <term>
             if (term.Children[0].IsTerminalOfToken<Symbol>(out var symbol)
-                && symbol.Kind is SymbolKind.Minus)
+                && symbol.Kind is SymbolKind.Minus or SymbolKind.Inverse)
             {
                 CompileTerm((NonTerminalElement)term.Children[1], symbolTable);
-                _codeWriter.Neg();
+                if (symbol.Kind == SymbolKind.Minus)
+                {
+                    _codeWriter.Neg();
+                }
+                else
+                {
+                    _codeWriter.Not();
+                }
                 return;
             }
 
@@ -273,6 +359,36 @@ public class CompilationEngine
         if (@operator.Token is Symbol { Kind: SymbolKind.Multiply })
         {
             _codeWriter.Multiply();
+            return;
+        }
+        if (@operator.Token is Symbol { Kind: SymbolKind.Minus })
+        {
+            _codeWriter.Sub();
+            return;
+        }
+        if (@operator.Token is Symbol { Kind: SymbolKind.Equal })
+        {
+            _codeWriter.Eq();
+            return;
+        }
+        if (@operator.Token is Symbol { Kind: SymbolKind.GreaterThan })
+        {
+            _codeWriter.Gt();
+            return;
+        }
+        if (@operator.Token is Symbol { Kind: SymbolKind.LowerThan })
+        {
+            _codeWriter.Lt();
+            return;
+        }
+        if (@operator.Token is Symbol { Kind: SymbolKind.And })
+        {
+            _codeWriter.And();
+            return;
+        }
+        if (@operator.Token is Symbol { Kind: SymbolKind.Or })
+        {
+            _codeWriter.Or();
             return;
         }
 

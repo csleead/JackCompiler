@@ -9,9 +9,9 @@ public class VmCodeWriter
 
     public string GetCode() => _code.ToString();
 
-    public void Function(string functionName, int parameterCount)
+    public void Function(string functionName, int localVariableCount)
     {
-        _code.AppendLine($"function {functionName} {parameterCount}");
+        _code.AppendLine($"function {functionName} {localVariableCount}");
     }
 
     public void Return()
@@ -50,10 +50,48 @@ public class VmCodeWriter
         _code.AppendLine($"call Math.multiply 2");
     }
 
-    internal void Neg()
+    public void Neg()
     {
         _code.AppendLine("neg");
     }
+
+    public void Not()
+    {
+        _code.AppendLine("not");
+    }
+
+    public void Label(string name)
+    {
+        _code.AppendLine($"label {name}");
+    }
+
+    public void Goto(string name)
+    {
+        _code.AppendLine($"goto {name}");
+    }
+
+    public void IfGoto(string name)
+    {
+        _code.AppendLine($"if-goto {name}");
+    }
+
+    public void Sub() =>
+        _code.AppendLine($"sub");
+
+    public void Eq() =>
+        _code.AppendLine($"eq");
+
+    public void Gt() =>
+        _code.AppendLine($"gt");
+
+    public void Lt() =>
+        _code.AppendLine($"lt");
+
+    public void And() =>
+        _code.AppendLine($"and");
+
+    public void Or() =>
+        _code.AppendLine($"or");
 }
 
 public enum MemorySegment
