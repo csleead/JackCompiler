@@ -88,8 +88,8 @@ public class CompilationEngine
             .OfType<NonTerminalElement>()
             .Single(x => x.Kind == NonTerminalElementKind.SubroutineBody);
 
-        var varCount = AddLocalVariableToSymbolTable(subroutineBody, symbolTable);
-        _codeWriter.Function($"{className}.{subroutineName}", varCount);
+        AddLocalVariableToSymbolTable(subroutineBody, symbolTable);
+        _codeWriter.Function($"{className}.{subroutineName}", symbolTable.LocalVarCount);
 
         var statements = subroutineBody
             .Children
@@ -119,7 +119,7 @@ public class CompilationEngine
         }
     }
 
-    private int AddLocalVariableToSymbolTable(NonTerminalElement subroutineBody, SymbolTable symbolTable)
+    private void AddLocalVariableToSymbolTable(NonTerminalElement subroutineBody, SymbolTable symbolTable)
     {
         EnsureElementKind(subroutineBody, NonTerminalElementKind.SubroutineBody);
 
@@ -127,7 +127,6 @@ public class CompilationEngine
             .OfType<NonTerminalElement>()
             .Where(x => x.Kind == NonTerminalElementKind.VarDec);
 
-        int varCount = 0;
         foreach (var varDec in varDecs)
         {
             var type = ((TerminalElement)varDec.Children[1]).Token switch
@@ -147,10 +146,8 @@ public class CompilationEngine
             foreach (var v in variables)
             {
                 symbolTable.AddIdentifier(v.Value, type, IdentifierKind.Var);
-                varCount++;
             }
         }
-        return varCount;
     }
 
     private void CompileStatements(NonTerminalElement statements, SymbolTable symbolTable)

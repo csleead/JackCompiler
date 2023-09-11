@@ -46,6 +46,9 @@ public class SymbolTable
             ?? _classLevelTable?.GetIdentifier(name)
             ?? throw new Exception($"Identifier {name} not found");
     }
+
+    public int LocalVarCount =>
+        _identifiers.Count(x => x.Value.Kind == IdentifierKind.Var);
 }
 
 public enum IdentifierKind
