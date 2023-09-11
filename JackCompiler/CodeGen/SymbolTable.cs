@@ -1,4 +1,7 @@
-﻿namespace JackCompiler;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Net.Http.Headers;
+
+namespace JackCompiler;
 
 public class SymbolTable
 {
@@ -42,9 +45,28 @@ public class SymbolTable
 
     public IdentifierInfo GetIdentifier(string name)
     {
-        return _identifiers.GetValueOrDefault(name)
-            ?? _classLevelTable?.GetIdentifier(name)
-            ?? throw new Exception($"Identifier {name} not found");
+        return TryGetIdentifier(name, out var identifierInfo) ?
+            identifierInfo :
+            throw new Exception($"Identifier {name} not found");
+    }
+
+    public bool TryGetIdentifier(string name, [NotNullWhen(true)] out IdentifierInfo? identifierInfo)
+    {
+        var id1 = _identifiers.GetValueOrDefault(name);
+        if (id1 is not null)
+        {
+            identifierInfo = id1;
+            return true;
+        }
+
+        if (_classLevelTable is not null && _classLevelTable._identifiers.TryGetValue(name, out var id2))
+        {
+            identifierInfo = id2;
+            return true;
+        }
+
+        identifierInfo = default;
+        return false;
     }
 
     public int LocalVarCount =>

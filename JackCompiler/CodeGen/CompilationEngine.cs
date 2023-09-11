@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using JackCompiler.Tokenizer;
 
 namespace JackCompiler;
@@ -383,6 +384,8 @@ public class CompilationEngine
 
     private void CompileSubroutineCall(NonTerminalElement statement, SymbolTable symbolTable, bool isDoStatement)
     {
+        EnsureElementKind(statement, NonTerminalElementKind.Term);
+
         var parameterExpressions = statement.Children
             .OfType<NonTerminalElement>()
             .Single(x => x.Kind == NonTerminalElementKind.ExpressionList)
@@ -390,23 +393,39 @@ public class CompilationEngine
             .OfType<NonTerminalElement>()
             .ToList();
 
+        var calleeIdentifier = GetCalleeIdentifier();
+        var isMethodCall = symbolTable.TryGetIdentifier(calleeIdentifier.Value, out var calleeIndentiferInfo);
+
+        if (isMethodCall)
+        {
+            var segment = GetMemorySegmentOfSymbol(calleeIndentiferInfo!);
+            _codeWriter.Push(segment, calleeIndentiferInfo!.Offset);
+        }
+
         foreach (var parameter in parameterExpressions)
         {
             CompileExpression(parameter, symbolTable);
         }
 
-        _codeWriter.Call(GetFunctionName(), parameterExpressions.Count, isDoStatement);
-
+        var paramCount = isMethodCall ? parameterExpressions.Count + 1 : parameterExpressions.Count;
+        _codeWriter.Call(GetFunctionName(), paramCount, isDoStatement);
 
         string GetFunctionName()
         {
-            var terminalElement1 = (TerminalElement)statement.Children[isDoStatement ? 1 : 0];
-            var className = ((Identifier)terminalElement1.Token).Value;
+            var calleeIdentifer = GetCalleeIdentifier();
+            var className = symbolTable.TryGetIdentifier(calleeIdentifer.Value, out var identifier) ?
+                identifier.Type : calleeIdentifer.Value;
 
             var terminalElement2 = (TerminalElement)statement.Children[isDoStatement ? 3 : 2];
             var subroutineName = ((Identifier)terminalElement2.Token).Value;
 
             return $"{className}.{subroutineName}";
+        }
+
+        Identifier GetCalleeIdentifier()
+        {
+            var callee = (TerminalElement)statement.Children[isDoStatement ? 1 : 0];
+            return (Identifier)callee.Token;
         }
     }
 
