@@ -85,9 +85,15 @@ public class CompilationEngine
             .Single(x => x.Kind == NonTerminalElementKind.SubroutineBody);
         AddLocalVariableToSymbolTable(subroutineBody, symbolTable);
 
-        if (subroutineDec.Children[0].AsTerminalOfToken<Keyword>().Kind == KeywordKind.Constructor)
+        var subroutineKind = subroutineDec.Children[0].AsTerminalOfToken<Keyword>().Kind;
+        if (subroutineKind == KeywordKind.Constructor)
         {
             CompileConstructor(subroutineDec, symbolTable);
+            return;
+        }
+        else if (subroutineKind == KeywordKind.Method)
+        {
+            CompileMethod(subroutineDec, symbolTable);
             return;
         }
 
@@ -100,6 +106,28 @@ public class CompilationEngine
             .Children
             .OfType<NonTerminalElement>()
             .Single(x => x.Kind == NonTerminalElementKind.Statements);
+        CompileStatements(statements, symbolTable);
+    }
+
+    private void CompileMethod(NonTerminalElement subroutineDec, SymbolTable symbolTable)
+    {
+        var className = GetClassName();
+        var subroutineName = GetSubroutineName(subroutineDec);
+
+        _codeWriter.Function($"{className}.{subroutineName}", symbolTable.LocalVarCount);
+
+        _codeWriter.Push(MemorySegment.Argument, 0);
+        _codeWriter.Pop(MemorySegment.Pointer, 0);
+
+        var subroutineBody = subroutineDec.Children
+            .OfType<NonTerminalElement>()
+            .Single(x => x.Kind == NonTerminalElementKind.SubroutineBody);
+
+        var statements = subroutineBody
+            .Children
+            .OfType<NonTerminalElement>()
+            .Single(x => x.Kind == NonTerminalElementKind.Statements);
+
         CompileStatements(statements, symbolTable);
     }
 
