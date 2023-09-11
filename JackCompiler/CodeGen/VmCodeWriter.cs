@@ -95,6 +95,7 @@ public enum MemorySegment
     Constant,
     Local,
     Argument,
+    This,
 }
 
 public static class MemorySegmentExtension
@@ -104,6 +105,7 @@ public static class MemorySegmentExtension
         MemorySegment.Constant => "constant",
         MemorySegment.Local => "local",
         MemorySegment.Argument => "argument",
+        MemorySegment.This => "this",
         _ => throw new Exception($"Unknown segment: {segment}")
     };
 }

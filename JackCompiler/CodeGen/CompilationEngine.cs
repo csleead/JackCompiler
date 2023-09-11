@@ -33,6 +33,8 @@ public class CompilationEngine
         var className = GetClassName();
         var classSymbolTable = new SymbolTable(className);
 
+        AddClassFieldsToSymbolTable(_classElement, classSymbolTable);
+
         var subRoutines = _classElement.Children
             .OfType<NonTerminalElement>()
             .Where(x => x.Kind == NonTerminalElementKind.SubroutineDec);
@@ -41,6 +43,34 @@ public class CompilationEngine
         {
             CompileSubroutine(subRoutine, classSymbolTable);
         }
+    }
+
+    private void AddClassFieldsToSymbolTable(NonTerminalElement classElement, SymbolTable classSymbolTable)
+    {
+        EnsureElementKind(classElement, NonTerminalElementKind.Class);
+
+        var classVarDecs = classElement.Children
+            .OfType<NonTerminalElement>()
+            .Where(x => x.Kind == NonTerminalElementKind.ClassVarDec);
+
+        foreach (var classVarDec in classVarDecs)
+        {
+            var type = classVarDec.Children[1].IsTerminalOfToken<Identifier>(out var identifier) ?
+                identifier.Value :
+                classVarDec.Children[1].AsTerminalOfToken<Keyword>().Kind switch
+                {
+                    KeywordKind.Int => "int",
+                    KeywordKind.Char => "char",
+                    KeywordKind.Boolean => "boolean",
+                    _ => throw new NotImplementedException($"Unexpected keyword kind {classVarDec.Children[1].AsTerminalOfToken<Keyword>().Kind}")
+                };
+
+            for (int i = 2; i < classVarDec.Children.Count; i += 2)
+            {
+                var iden = classVarDec.Children[i].AsTerminalOfToken<Identifier>();
+                classSymbolTable.AddIdentifier(iden.Value, type, IdentifierKind.Field);
+            }
+        };
     }
 
     private void CompileSubroutine(NonTerminalElement subroutineDec, SymbolTable classSymbolTable)
@@ -452,6 +482,7 @@ public class CompilationEngine
         {
             IdentifierKind.Var => MemorySegment.Local,
             IdentifierKind.Arg => MemorySegment.Argument,
+            IdentifierKind.Field => MemorySegment.This,
             _ => throw new InvalidOperationException($"Unexpected IdentifierKind {info.Kind}"),
         };
 }
