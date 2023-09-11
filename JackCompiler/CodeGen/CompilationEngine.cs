@@ -77,24 +77,50 @@ public class CompilationEngine
     {
         EnsureElementKind(subroutineDec, NonTerminalElementKind.SubroutineDec);
 
-        var className = GetClassName();
-        var subroutineName = GetSubroutineName(subroutineDec);
-
         var symbolTable = classSymbolTable.StartSubroutine();
-
         AddParametersToSymbolTable(subroutineDec, symbolTable);
 
         var subroutineBody = subroutineDec.Children
             .OfType<NonTerminalElement>()
             .Single(x => x.Kind == NonTerminalElementKind.SubroutineBody);
-
         AddLocalVariableToSymbolTable(subroutineBody, symbolTable);
+
+        if (subroutineDec.Children[0].AsTerminalOfToken<Keyword>().Kind == KeywordKind.Constructor)
+        {
+            CompileConstructor(subroutineDec, symbolTable);
+            return;
+        }
+
+        var className = GetClassName();
+        var subroutineName = GetSubroutineName(subroutineDec);
+
         _codeWriter.Function($"{className}.{subroutineName}", symbolTable.LocalVarCount);
 
         var statements = subroutineBody
             .Children
             .OfType<NonTerminalElement>()
             .Single(x => x.Kind == NonTerminalElementKind.Statements);
+        CompileStatements(statements, symbolTable);
+    }
+
+    private void CompileConstructor(NonTerminalElement subroutineDec, SymbolTable symbolTable)
+    {
+        var className = GetClassName();
+        var subroutineName = GetSubroutineName(subroutineDec);
+
+        _codeWriter.Function($"{className}.{subroutineName}", symbolTable.LocalVarCount);
+
+        _codeWriter.MemoryAlloc(symbolTable.ClassFieldCount);
+
+        var subroutineBody = subroutineDec.Children
+            .OfType<NonTerminalElement>()
+            .Single(x => x.Kind == NonTerminalElementKind.SubroutineBody);
+
+        var statements = subroutineBody
+            .Children
+            .OfType<NonTerminalElement>()
+            .Single(x => x.Kind == NonTerminalElementKind.Statements);
+
         CompileStatements(statements, symbolTable);
     }
 
@@ -308,6 +334,12 @@ public class CompilationEngine
             if (terminalElement.Token is IntegerConstant integerConstant)
             {
                 _codeWriter.Push(MemorySegment.Constant, integerConstant.Value);
+                return;
+            }
+
+            if (terminalElement.Token is Keyword { Kind: KeywordKind.This } thisKeyword)
+            {
+                _codeWriter.Push(MemorySegment.Pointer, 0);
                 return;
             }
 

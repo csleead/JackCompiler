@@ -88,6 +88,13 @@ public class VmCodeWriter
 
     public void Or() =>
         _code.AppendLine($"or");
+
+    public void MemoryAlloc(int numOfFields)
+    {
+        _code.AppendLine($"push constant {numOfFields}");
+        _code.AppendLine("call Memory.alloc 1");
+        _code.AppendLine("pop pointer 0");
+    }
 }
 
 public enum MemorySegment
@@ -96,6 +103,7 @@ public enum MemorySegment
     Local,
     Argument,
     This,
+    Pointer,
 }
 
 public static class MemorySegmentExtension
@@ -106,6 +114,7 @@ public static class MemorySegmentExtension
         MemorySegment.Local => "local",
         MemorySegment.Argument => "argument",
         MemorySegment.This => "this",
+        MemorySegment.Pointer => "pointer",
         _ => throw new Exception($"Unknown segment: {segment}")
     };
 }

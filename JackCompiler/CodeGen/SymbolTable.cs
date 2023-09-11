@@ -49,6 +49,9 @@ public class SymbolTable
 
     public int LocalVarCount =>
         _identifiers.Count(x => x.Value.Kind == IdentifierKind.Var);
+
+    public int ClassFieldCount =>
+        (_classLevelTable ?? this)._identifiers.Count(x => x.Value.Kind == IdentifierKind.Field);
 }
 
 public enum IdentifierKind
