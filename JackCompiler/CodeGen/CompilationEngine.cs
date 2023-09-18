@@ -389,110 +389,109 @@ public class CompilationEngine
     private void CompileTerm(NonTerminalElement term, SymbolTable symbolTable)
     {
         EnsureElementKind(term, NonTerminalElementKind.Term);
-        var termValue = term.Children[0];
+        var termValue = (TerminalElement)term.Children[0];
 
-        if (termValue is TerminalElement terminalElement)
+
+        if (termValue.Token is StringConstant stringConstant)
         {
-            if (terminalElement.Token is StringConstant stringConstant)
+            var length = stringConstant.Value.Length;
+            _codeWriter.Push(MemorySegment.Constant, length);
+            _codeWriter.Call("String.new", 1, false);
+
+            for (var i = 0; i < length; i++)
             {
-                var length = stringConstant.Value.Length;
-                _codeWriter.Push(MemorySegment.Constant, length);
-                _codeWriter.Call("String.new", 1, false);
-
-                for (var i = 0; i < length; i++)
-                {
-                    var charValue = (int)stringConstant.Value[i];
-                    _codeWriter.Push(MemorySegment.Constant, charValue);
-                    _codeWriter.Call("String.appendChar", 2, false);
-                }
-                return;
+                var charValue = (int)stringConstant.Value[i];
+                _codeWriter.Push(MemorySegment.Constant, charValue);
+                _codeWriter.Call("String.appendChar", 2, false);
             }
-
-            if (terminalElement.Token is IntegerConstant integerConstant)
-            {
-                _codeWriter.Push(MemorySegment.Constant, integerConstant.Value);
-                return;
-            }
-
-            if (terminalElement.Token is Keyword { Kind: KeywordKind.This } thisKeyword)
-            {
-                _codeWriter.Push(MemorySegment.Pointer, 0);
-                return;
-            }
-
-            if (terminalElement.Token is Keyword { Kind: KeywordKind.Null } nullKeyword)
-            {
-                _codeWriter.Push(MemorySegment.Constant, 0);
-                return;
-            }
-
-            if (terminalElement.Token is Keyword { Kind: KeywordKind.True or KeywordKind.False } booleanLiteral)
-            {
-                _codeWriter.Push(MemorySegment.Constant, 0);
-                if (booleanLiteral.Kind == KeywordKind.True)
-                {
-                    _codeWriter.Not();
-                }
-                return;
-            }
-
-            if (term.Children.Count == 1 && terminalElement.Token is Identifier identifier)
-            {
-                var info = symbolTable.GetIdentifier(identifier.Value);
-                var segment = GetMemorySegmentOfSymbol(info);
-                _codeWriter.Push(segment, info.Offset);
-                return;
-            }
-
-            // arr[i]
-            if (term.Children.Count == 4
-                && term.Children[1].AsTerminalOfToken<Symbol>().Kind == SymbolKind.OpenSquareBracket)
-            {
-                var arrIdentifer = term.Children[0].AsTerminalOfToken<Identifier>();
-                var arrSymbol = symbolTable.GetIdentifier(arrIdentifer.Value);
-                _codeWriter.Push(GetMemorySegmentOfSymbol(arrSymbol), arrSymbol.Offset);
-
-                CompileExpression((NonTerminalElement)term.Children[2], symbolTable);
-                _codeWriter.Add();
-
-                _codeWriter.Pop(MemorySegment.Pointer, 1);
-                _codeWriter.Push(MemorySegment.That, 0);
-
-                return;
-            }
-
-            // '(' <expression> ')'
-            if (terminalElement.Token is Symbol { Kind: SymbolKind.OpenBracket })
-            {
-                var expression = (NonTerminalElement)term.Children[1];
-                CompileExpression(expression, symbolTable);
-                return;
-            }
-
-            // unaryOp <term>
-            if (term.Children[0].IsTerminalOfToken<Symbol>(out var symbol)
-                && symbol.Kind is SymbolKind.Minus or SymbolKind.Inverse)
-            {
-                CompileTerm((NonTerminalElement)term.Children[1], symbolTable);
-                if (symbol.Kind == SymbolKind.Minus)
-                {
-                    _codeWriter.Neg();
-                }
-                else
-                {
-                    _codeWriter.Not();
-                }
-                return;
-            }
-
-            // subroutine call
-            if (terminalElement.IsTerminalOfToken<Identifier>(out var _)
-                && term.Children[1].IsTerminalOfToken<Symbol>(s => s.Kind == SymbolKind.Dot))
-            {
-                CompileSubroutineCall(term, symbolTable, false);
-                return;
-            }
+            return;
         }
+
+        if (termValue.Token is IntegerConstant integerConstant)
+        {
+            _codeWriter.Push(MemorySegment.Constant, integerConstant.Value);
+            return;
+        }
+
+        if (termValue.Token is Keyword { Kind: KeywordKind.This } thisKeyword)
+        {
+            _codeWriter.Push(MemorySegment.Pointer, 0);
+            return;
+        }
+
+        if (termValue.Token is Keyword { Kind: KeywordKind.Null } nullKeyword)
+        {
+            _codeWriter.Push(MemorySegment.Constant, 0);
+            return;
+        }
+
+        if (termValue.Token is Keyword { Kind: KeywordKind.True or KeywordKind.False } booleanLiteral)
+        {
+            _codeWriter.Push(MemorySegment.Constant, 0);
+            if (booleanLiteral.Kind == KeywordKind.True)
+            {
+                _codeWriter.Not();
+            }
+            return;
+        }
+
+        if (term.Children.Count == 1 && termValue.Token is Identifier identifier)
+        {
+            var info = symbolTable.GetIdentifier(identifier.Value);
+            var segment = GetMemorySegmentOfSymbol(info);
+            _codeWriter.Push(segment, info.Offset);
+            return;
+        }
+
+        // arr[i]
+        if (term.Children.Count == 4
+            && term.Children[1].AsTerminalOfToken<Symbol>().Kind == SymbolKind.OpenSquareBracket)
+        {
+            var arrIdentifer = term.Children[0].AsTerminalOfToken<Identifier>();
+            var arrSymbol = symbolTable.GetIdentifier(arrIdentifer.Value);
+            _codeWriter.Push(GetMemorySegmentOfSymbol(arrSymbol), arrSymbol.Offset);
+
+            CompileExpression((NonTerminalElement)term.Children[2], symbolTable);
+            _codeWriter.Add();
+
+            _codeWriter.Pop(MemorySegment.Pointer, 1);
+            _codeWriter.Push(MemorySegment.That, 0);
+
+            return;
+        }
+
+        // '(' <expression> ')'
+        if (termValue.Token is Symbol { Kind: SymbolKind.OpenBracket })
+        {
+            var expression = (NonTerminalElement)term.Children[1];
+            CompileExpression(expression, symbolTable);
+            return;
+        }
+
+        // unaryOp <term>
+        if (term.Children[0].IsTerminalOfToken<Symbol>(out var symbol)
+            && symbol.Kind is SymbolKind.Minus or SymbolKind.Inverse)
+        {
+            CompileTerm((NonTerminalElement)term.Children[1], symbolTable);
+            if (symbol.Kind == SymbolKind.Minus)
+            {
+                _codeWriter.Neg();
+            }
+            else
+            {
+                _codeWriter.Not();
+            }
+            return;
+        }
+
+        // subroutine call
+        if (termValue.IsTerminalOfToken<Identifier>(out var _)
+            && term.Children[1].IsTerminalOfToken<Symbol>(s => s.Kind == SymbolKind.Dot))
+        {
+            CompileSubroutineCall(term, symbolTable, false);
+            return;
+        }
+
 
         throw new InvalidOperationException($"Unexpected term element: {termValue}");
     }
@@ -607,18 +606,6 @@ public class CompilationEngine
         var element = (TerminalElement)subroutineDec.Children[2];
         var identifier = (Identifier)element.Token;
         return identifier.Value;
-    }
-
-    private static int GetSubroutineParameterCount(NonTerminalElement subroutineDec)
-    {
-        var parameterList = subroutineDec.Children
-            .OfType<NonTerminalElement>()
-            .Where(x => x.Kind == NonTerminalElementKind.ParameterList)
-            .Single();
-
-        return parameterList.Children
-            .OfType<TerminalElement>()
-            .Count(x => x.Token is Identifier);
     }
 
     private static void EnsureElementKind(NonTerminalElement element, NonTerminalElementKind kind)
