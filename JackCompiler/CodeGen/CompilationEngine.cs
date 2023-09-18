@@ -248,15 +248,46 @@ public class CompilationEngine
     {
         EnsureElementKind(statement, NonTerminalElementKind.LetStatement);
 
-        var variableToken = ((TerminalElement)statement.Children[1]).Token;
-        var identifier = ((Identifier)variableToken).Value;
-        var symbol = symbolTable.GetIdentifier(identifier);
+        if (statement.Children[2].AsTerminalOfToken<Symbol>().Kind == SymbolKind.Equal)
+        {
+            CompileVariableAssignment();
+        }
+        else
+        {
+            CompileArrayElementAssignment();
+        }
 
-        var expression = statement.Children[3];
-        CompileExpression((NonTerminalElement)expression, symbolTable);
+        void CompileVariableAssignment()
+        {
+            var variableToken = ((TerminalElement)statement.Children[1]).Token;
+            var identifier = ((Identifier)variableToken).Value;
+            var symbol = symbolTable.GetIdentifier(identifier);
 
-        var segment = GetMemorySegmentOfSymbol(symbol);
-        _codeWriter.Pop(segment, symbol.Offset);
+            var expression = statement.Children[3];
+            CompileExpression((NonTerminalElement)expression, symbolTable);
+
+            var segment = GetMemorySegmentOfSymbol(symbol);
+            _codeWriter.Pop(segment, symbol.Offset);
+        }
+
+        void CompileArrayElementAssignment()
+        {
+            var identifier = statement.Children[1].AsTerminalOfToken<Identifier>().Value;
+            var symbol = symbolTable.GetIdentifier(identifier);
+            _codeWriter.Push(GetMemorySegmentOfSymbol(symbol), symbol.Offset);
+
+            // offset expression
+            CompileExpression((NonTerminalElement)statement.Children[3], symbolTable);
+            _codeWriter.Add();
+
+            // value expression
+            CompileExpression((NonTerminalElement)statement.Children[6], symbolTable);
+
+            _codeWriter.Pop(MemorySegment.Temp, 0);
+            _codeWriter.Pop(MemorySegment.Pointer, 1);
+            _codeWriter.Push(MemorySegment.Temp, 0);
+            _codeWriter.Pop(MemorySegment.That, 0);
+        }
     }
 
     private void CompileDoStatement(NonTerminalElement statement, SymbolTable symbolTable)
@@ -360,6 +391,21 @@ public class CompilationEngine
 
         if (termValue is TerminalElement terminalElement)
         {
+            if (terminalElement.Token is StringConstant stringConstant)
+            {
+                var length = stringConstant.Value.Length;
+                _codeWriter.Push(MemorySegment.Constant, length);
+                _codeWriter.Call("String.new", 1, false);
+
+                for (var i = 0; i < length; i++)
+                {
+                    var charValue = (int)stringConstant.Value[i];
+                    _codeWriter.Push(MemorySegment.Constant, charValue);
+                    _codeWriter.Call("String.appendChar", 2, false);
+                }
+                return;
+            }
+
             if (terminalElement.Token is IntegerConstant integerConstant)
             {
                 _codeWriter.Push(MemorySegment.Constant, integerConstant.Value);
@@ -387,6 +433,23 @@ public class CompilationEngine
                 var info = symbolTable.GetIdentifier(identifier.Value);
                 var segment = GetMemorySegmentOfSymbol(info);
                 _codeWriter.Push(segment, info.Offset);
+                return;
+            }
+
+            // arr[i]
+            if (term.Children.Count == 4
+                && term.Children[1].AsTerminalOfToken<Symbol>().Kind == SymbolKind.OpenSquareBracket)
+            {
+                var arrIdentifer = term.Children[0].AsTerminalOfToken<Identifier>();
+                var arrSymbol = symbolTable.GetIdentifier(arrIdentifer.Value);
+                _codeWriter.Push(GetMemorySegmentOfSymbol(arrSymbol), arrSymbol.Offset);
+
+                CompileExpression((NonTerminalElement)term.Children[2], symbolTable);
+                _codeWriter.Add();
+
+                _codeWriter.Pop(MemorySegment.Pointer, 1);
+                _codeWriter.Push(MemorySegment.That, 0);
+
                 return;
             }
 
@@ -483,6 +546,11 @@ public class CompilationEngine
         if (@operator.Token is Symbol { Kind: SymbolKind.Multiply })
         {
             _codeWriter.Multiply();
+            return;
+        }
+        if (@operator.Token is Symbol { Kind: SymbolKind.Divide })
+        {
+            _codeWriter.Divide();
             return;
         }
         if (@operator.Token is Symbol { Kind: SymbolKind.Minus })

@@ -95,6 +95,11 @@ public class VmCodeWriter
         _code.AppendLine("call Memory.alloc 1");
         _code.AppendLine("pop pointer 0");
     }
+
+    public void Divide()
+    {
+        _code.AppendLine($"call Math.divide 2");
+    }
 }
 
 public enum MemorySegment
@@ -104,6 +109,8 @@ public enum MemorySegment
     Argument,
     This,
     Pointer,
+    Temp,
+    That,
 }
 
 public static class MemorySegmentExtension
@@ -115,6 +122,8 @@ public static class MemorySegmentExtension
         MemorySegment.Argument => "argument",
         MemorySegment.This => "this",
         MemorySegment.Pointer => "pointer",
+        MemorySegment.Temp => "temp",
+        MemorySegment.That => "that",
         _ => throw new Exception($"Unknown segment: {segment}")
     };
 }
