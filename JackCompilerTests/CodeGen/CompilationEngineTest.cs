@@ -11,6 +11,7 @@ public class VmWriterTest
     [InlineData("JackSource/Seven/Main.jack")]
     [InlineData("JackSource/ConvertToBin/Main.jack")]
     [InlineData("JackSource/Average/Main.jack")]
+    [InlineData("JackSource/ComplexArrays/Main.jack")]
     public async Task Test(string source)
     {
         var file = Path.Join(Directory.GetCurrentDirectory(), "../../..", source);

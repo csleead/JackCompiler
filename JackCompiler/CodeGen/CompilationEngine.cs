@@ -420,6 +420,12 @@ public class CompilationEngine
                 return;
             }
 
+            if (terminalElement.Token is Keyword { Kind: KeywordKind.Null } nullKeyword)
+            {
+                _codeWriter.Push(MemorySegment.Constant, 0);
+                return;
+            }
+
             if (terminalElement.Token is Keyword { Kind: KeywordKind.True or KeywordKind.False } booleanLiteral)
             {
                 _codeWriter.Push(MemorySegment.Constant, 0);
