@@ -270,23 +270,67 @@ public class CompilationEngine
             .OfType<NonTerminalElement>()
             .ToList();
 
+        var callKind = DetermineSubroutineCallKind();
+        if (callKind == SubroutineCallKind.SelfMethodCall)
+        {
+            _codeWriter.Push(MemorySegment.Pointer, 0);
+        }
+        else if (callKind == SubroutineCallKind.MethodCall)
+        {
+            var variable = statement.Children[1].AsTerminalOfToken<Identifier>().Value;
+            var symbol = symbolTable.GetIdentifier(variable);
+            _codeWriter.Push(GetMemorySegmentOfSymbol(symbol), symbol.Offset);
+        }
+
         foreach (var parameter in parameterExpressions)
         {
             CompileExpression(parameter, symbolTable);
         }
 
-        _codeWriter.Call(GetFunctionName(), parameterExpressions.Count, true);
+        var paramCount = parameterExpressions.Count;
+        if (callKind is SubroutineCallKind.MethodCall or SubroutineCallKind.SelfMethodCall)
+        {
+            paramCount++;
+        }
+        _codeWriter.Call(GetFunctionName(), paramCount, true);
 
+        SubroutineCallKind DetermineSubroutineCallKind()
+        {
+            // do <method>();
+            if (statement.Children.OfType<TerminalElement>().Count(x => x.Token is Identifier) == 1)
+            {
+                return SubroutineCallKind.SelfMethodCall;
+            }
+
+            var identifier = statement.Children[1].AsTerminalOfToken<Identifier>().Value;
+            if (symbolTable.TryGetIdentifier(identifier, out var symbol))
+            {
+                return SubroutineCallKind.MethodCall;
+            }
+
+            return SubroutineCallKind.FunctionCall;
+        }
 
         string GetFunctionName()
         {
-            var terminalElement1 = (TerminalElement)statement.Children[1];
-            var className = ((Identifier)terminalElement1.Token).Value;
+            var callKind = DetermineSubroutineCallKind();
+            if (callKind == SubroutineCallKind.SelfMethodCall)
+            {
+                var className = GetClassName();
+                var subroutineName = statement.Children[1].AsTerminalOfToken<Identifier>().Value;
+                return $"{className}.{subroutineName}";
+            }
+            else
+            {
+                // do <identifier>.<method>();
+                var identifier = statement.Children[1].AsTerminalOfToken<Identifier>().Value;
+                var className = symbolTable.TryGetIdentifier(identifier, out var symbol) ? symbol.Type : identifier;
 
-            var terminalElement2 = (TerminalElement)statement.Children[3];
-            var subroutineName = ((Identifier)terminalElement2.Token).Value;
+                var terminalElement2 = (TerminalElement)statement.Children[3];
+                var subroutineName = ((Identifier)terminalElement2.Token).Value;
 
-            return $"{className}.{subroutineName}";
+                return $"{className}.{subroutineName}";
+            }
         }
     }
 
@@ -517,4 +561,11 @@ public class CompilationEngine
             IdentifierKind.Field => MemorySegment.This,
             _ => throw new InvalidOperationException($"Unexpected IdentifierKind {info.Kind}"),
         };
+
+    private enum SubroutineCallKind
+    {
+        FunctionCall,
+        MethodCall,
+        SelfMethodCall,
+    }
 }
