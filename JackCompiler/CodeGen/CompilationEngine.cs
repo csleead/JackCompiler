@@ -56,6 +56,8 @@ public class CompilationEngine
 
         foreach (var classVarDec in classVarDecs)
         {
+            var isStatic = classVarDec.Children[0].AsTerminalOfToken<Keyword>().Kind == KeywordKind.Static;
+
             var type = classVarDec.Children[1].IsTerminalOfToken<Identifier>(out var identifier) ?
                 identifier.Value :
                 classVarDec.Children[1].AsTerminalOfToken<Keyword>().Kind switch
@@ -69,7 +71,7 @@ public class CompilationEngine
             for (int i = 2; i < classVarDec.Children.Count; i += 2)
             {
                 var iden = classVarDec.Children[i].AsTerminalOfToken<Identifier>();
-                classSymbolTable.AddIdentifier(iden.Value, type, IdentifierKind.Field);
+                classSymbolTable.AddIdentifier(iden.Value, type, isStatic ? IdentifierKind.Static : IdentifierKind.Field);
             }
         };
     }
@@ -627,6 +629,7 @@ public class CompilationEngine
             IdentifierKind.Var => MemorySegment.Local,
             IdentifierKind.Arg => MemorySegment.Argument,
             IdentifierKind.Field => MemorySegment.This,
+            IdentifierKind.Static => MemorySegment.Static,
             _ => throw new InvalidOperationException($"Unexpected IdentifierKind {info.Kind}"),
         };
 

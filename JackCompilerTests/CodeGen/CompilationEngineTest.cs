@@ -24,6 +24,7 @@ public class VmWriterTest
 
     [Theory]
     [InlineData("JackSource/Square-CodeGen")]
+    [InlineData("JackSource/Pong")]
     public async Task TestDirectory(string sourceDir)
     {
 

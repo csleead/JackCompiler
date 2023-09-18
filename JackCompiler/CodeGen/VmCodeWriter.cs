@@ -111,6 +111,7 @@ public enum MemorySegment
     Pointer,
     Temp,
     That,
+    Static,
 }
 
 public static class MemorySegmentExtension
@@ -124,6 +125,7 @@ public static class MemorySegmentExtension
         MemorySegment.Pointer => "pointer",
         MemorySegment.Temp => "temp",
         MemorySegment.That => "that",
+        MemorySegment.Static => "static",
         _ => throw new Exception($"Unknown segment: {segment}")
     };
 }
